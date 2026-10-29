@@ -1,0 +1,36 @@
+# Два контейнери: база і застосунок. Запуск: docker compose up --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: library
+      POSTGRES_PASSWORD: library
+      POSTGRES_DB: library
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library -d library"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: library
+      DB_PASSWORD: library
+      DB_NAME: library
+    # Застосунок стартує тільки після того, як база відповіла на pg_isready.
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -1,0 +1,137 @@
+# Запити для VS Code REST Client. Натисни "Send Request" над будь-яким з них.
+# Перед цим запусти застосунок і seed: npm run seed.
+
+@host = http://localhost:3000
+
+### Health
+GET {{host}}/health
+
+### OpenAPI JSON
+GET {{host}}/openapi.json
+
+### ---------- Автори ----------
+
+### Список авторів (сторінка 1, по 10)
+GET {{host}}/authors?page=1&pageSize=10
+
+### Один автор
+GET {{host}}/authors/1
+
+### Автора немає: 404
+GET {{host}}/authors/9999
+
+### Створити автора
+POST {{host}}/authors
+Content-Type: application/json
+
+{
+  "name": "Валер'ян Підмогильний",
+  "country": "Україна"
+}
+
+### Створити автора з помилкою: 400 (name порожній, country відсутній)
+POST {{host}}/authors
+Content-Type: application/json
+
+{
+  "name": ""
+}
+
+### Змінити автора (тільки country)
+PATCH {{host}}/authors/1
+Content-Type: application/json
+
+{
+  "country": "Україна"
+}
+
+### Видалити автора з книгами: 409
+DELETE {{host}}/authors/1
+
+### Видалити автора без книг: 204 (підстав id щойно створеного)
+DELETE {{host}}/authors/4
+
+### ---------- Книги ----------
+
+### Список книг
+GET {{host}}/books?page=1&pageSize=10
+
+### Книги одного автора
+GET {{host}}/books?authorId=3
+
+### Пошук за частиною назви
+GET {{host}}/books?q=коб
+
+### Одна книга разом з автором (JOIN)
+GET {{host}}/books/1
+
+### Створити книгу
+POST {{host}}/books
+Content-Type: application/json
+
+{
+  "title": "Місто",
+  "year": 1928,
+  "authorId": 1,
+  "copiesTotal": 2
+}
+
+### Створити книгу з неіснуючим автором: 404
+POST {{host}}/books
+Content-Type: application/json
+
+{
+  "title": "Місто",
+  "year": 1928,
+  "authorId": 9999,
+  "copiesTotal": 2
+}
+
+### Змінити книгу
+PATCH {{host}}/books/1
+Content-Type: application/json
+
+{
+  "year": 1840
+}
+
+### Видалити книгу з видачами: 409
+DELETE {{host}}/books/1
+
+### Видалити книгу без видач: 204
+DELETE {{host}}/books/9
+
+### ---------- Видачі ----------
+
+### Усі видачі
+GET {{host}}/loans?page=1&pageSize=10
+
+### Тільки активні (книга на руках)
+GET {{host}}/loans?active=true
+
+### Тільки повернуті
+GET {{host}}/loans?active=false
+
+### Видати книгу
+POST {{host}}/loans
+Content-Type: application/json
+
+{
+  "bookId": 3,
+  "readerName": "Олена Петренко"
+}
+
+### Видати ту саму книгу ще раз: 409, бо в "Катерини" один примірник
+POST {{host}}/loans
+Content-Type: application/json
+
+{
+  "bookId": 3,
+  "readerName": "Андрій Коваль"
+}
+
+### Повернути книгу (id видачі)
+POST {{host}}/loans/1/return
+
+### Повернути вдруге: 409
+POST {{host}}/loans/1/return
