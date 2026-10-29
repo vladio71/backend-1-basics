@@ -16,6 +16,15 @@ docker compose up --build
 
 Потім відкрити http://localhost:3000/reference. Там уся документація, і кожен запит можна виконати прямо зі сторінки.
 
+Якщо Docker пише `Bind for 0.0.0.0:3000 failed: port is already allocated`, порт 3000 уже зайнятий іншою програмою, і на http://localhost:3000 відповідає вона, а не цей застосунок. Або зупини ту програму, або запусти на іншому порту (те саме для бази: `DB_HOST_PORT`, якщо зайнятий 5432):
+
+```bash
+APP_PORT=3001 docker compose up --build            # bash
+$env:APP_PORT=3001; docker compose up --build      # PowerShell
+```
+
+і відкрий http://localhost:3001/reference.
+
 Щоб наповнити базу тестовими даними:
 
 ```bash
