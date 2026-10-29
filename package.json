@@ -14,6 +14,10 @@
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts -p src/database/migrations/Migration",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "seed": "ts-node src/database/seed.ts",
+    "deps:check": "depcruise src --config .dependency-cruiser.cjs",
+    "graph": "depcruise src --config .dependency-cruiser.cjs --output-type archi --include-only \"^src\" | dot -Tsvg -o docs/graphs/modules.svg",
+    "graph:files": "depcruise src --config .dependency-cruiser.cjs --output-type dot --include-only \"^src\" | dot -Tsvg -o docs/graphs/files.svg",
+    "docs:code": "compodoc -p tsconfig.build.json -d docs/compodoc -n \"library-basics\" --disableCoverage --disableDomTree --disableTemplateTab --disableStyleTab",
     "test": "jest",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand"
   },
@@ -33,12 +37,14 @@
     "typeorm": "0.3.31"
   },
   "devDependencies": {
+    "@compodoc/compodoc": "2.0.0",
     "@nestjs/cli": "11.0.24",
     "@nestjs/testing": "11.2.8",
     "@types/express": "5.0.6",
     "@types/jest": "30.0.0",
     "@types/node": "22.20.5",
     "@types/supertest": "7.2.1",
+    "dependency-cruiser": "18.7.0",
     "jest": "30.5.2",
     "supertest": "7.3.1",
     "ts-jest": "29.4.15",
@@ -48,7 +54,11 @@
   "jest": {
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "transform": {
       "^.+\\.ts$": "ts-jest"
     },
