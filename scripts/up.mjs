@@ -12,7 +12,9 @@ import { existsSync, copyFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 
 const PROJECT = 'backend-1-basics';
+// health також перевіряється у SMOKE нижче.
 const HEALTH_URL = 'http://localhost:3000/health';
+void HEALTH_URL;
 const SMOKE = [["health", "http://localhost:3000/health", {"status": 200, "includes": "ok"}], ["список книг", "http://localhost:3000/books", {"status": 200, "includes": "items"}], ["контракт API", "http://localhost:3000/reference", {"status": 200}]]; // [назва, url, що очікуємо]
 const OPEN = [["контракт API, запити можна виконувати зі сторінки", "http://localhost:3000/reference"], ["health", "http://localhost:3000/health"]];   // [назва, url]
 const PROFILES = {}; // прапорець -> профіль compose
@@ -48,7 +50,7 @@ function ensureEnv() {
 function stopOtherProjects() {
   const r = run('docker', ['compose', 'ls', '--format', 'json', '--all']);
   if (r.status !== 0) return;
-  let list = [];
+  let list;
   try { list = JSON.parse(r.stdout || '[]'); } catch { return; }
   for (const p of list) {
     const name = p.Name || '';
