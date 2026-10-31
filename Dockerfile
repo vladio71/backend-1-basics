@@ -5,6 +5,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
+COPY scheme ./scheme
+COPY public ./public
+COPY docs/architecture.excalidraw ./docs/architecture.excalidraw
 RUN npm run build
 
 # Етап 2: запуск. Тільки production-залежності і готовий dist/. Образ менший.
@@ -14,7 +17,7 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
-COPY public ./public
+COPY --from=build /app/public ./public
 
 EXPOSE 3000
 

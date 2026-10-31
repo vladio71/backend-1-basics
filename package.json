@@ -10,7 +10,7 @@
   "scripts": {
     "up": "node scripts/up.mjs",
     "down": "node scripts/down.mjs",
-    "build": "nest build",
+    "build": "nest build && npm run build:scheme",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts -p src/database/migrations/Migration",
@@ -21,7 +21,8 @@
     "graph:files": "depcruise src --config .dependency-cruiser.cjs --output-type dot --include-only \"^src\" | dot -Tsvg -o docs/graphs/files.svg",
     "docs:code": "compodoc -p tsconfig.build.json -d docs/compodoc -n \"library-basics\" --disableCoverage --disableDomTree --disableTemplateTab --disableStyleTab",
     "test": "jest",
-    "test:e2e": "jest --config test/jest-e2e.json --runInBand"
+    "test:e2e": "jest --config test/jest-e2e.json --runInBand",
+    "build:scheme": "node scheme/build.mjs"
   },
   "dependencies": {
     "@nestjs/common": "11.2.8",
@@ -40,14 +41,20 @@
   },
   "devDependencies": {
     "@compodoc/compodoc": "2.0.0",
+    "@excalidraw/excalidraw": "^0.18.1",
     "@nestjs/cli": "11.0.24",
     "@nestjs/testing": "11.2.8",
     "@types/express": "5.0.6",
     "@types/jest": "30.0.0",
     "@types/node": "22.20.5",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "@types/supertest": "7.2.1",
     "dependency-cruiser": "18.7.0",
+    "esbuild": "^0.28.2",
     "jest": "30.5.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "supertest": "7.3.1",
     "ts-jest": "29.4.15",
     "ts-node": "10.9.2",
