@@ -6,45 +6,29 @@
 
 Стек: Node 22, TypeScript, NestJS 11, PostgreSQL 16, TypeORM.
 
-## 2. Запуск однією командою
+## 2. Запуск
 
-Потрібні тільки Node 22 і запущений Docker Desktop. Далі:
+Потрібні Node 22 і запущений Docker Desktop.
 
 ```
 npm run up
 ```
 
-Скрипт сам створить `.env`, погасить інший проєкт `backend-*`, якщо він зараз працює (усі три ділять порти 5432, 6379, 16686), перевірить, чи вільні порти, підніме все через docker compose, дочекається, поки сервіси стануть healthy, зробить перевірочні запити і надрукує адреси. Відкривати http://localhost:3000/reference.
+Далі відкрити:
 
-Якщо порт тримає щось поза Docker (локальний Postgres або Redis), скрипт назве порт і зупиниться: зупини ту програму і повтори. Зупинити проєкт: `npm run down`. Разом із даними: `npm run down -- --wipe`.
+- http://localhost:3000/reference: контракт API, запити виконуються зі сторінки
+- http://localhost:3000/scheme: схема проєкту
 
-### Інші способи запуску
+Зупинити: `npm run down`. Разом з даними: `npm run down -- --wipe`.
 
-З Docker (потрібен тільки Docker):
+<details>
+<summary>Що робить npm run up і що робити, якщо щось пішло не так</summary>
 
-```bash
-docker compose up --build
-```
+Ставить npm-залежності, якщо їх немає, створює `.env`, гасить інший проєкт `backend-*`, якщо він зараз працює (усі три ділять порти 5432, 6379, 16686), перевіряє, чи вільні порти, піднімає все через docker compose, чекає, поки сервіси стануть healthy, робить перевірочні запити і друкує адреси.
 
-Потім відкрити http://localhost:3000/reference. Там уся документація, і кожен запит можна виконати прямо зі сторінки.
+Якщо порт тримає щось поза Docker (локальний Postgres або Redis), скрипт назве порт і зупиниться: зупини ту програму і повтори. Якщо якийсь сервіс упав, скрипт надрукує його логи; повний лог: `docker compose logs <сервіс>`.
 
-Щоб наповнити базу тестовими даними:
-
-```bash
-docker compose exec app node dist/database/seed.js
-```
-
-Без Docker (потрібен Node 22 і запущений PostgreSQL 16):
-
-```bash
-cp .env.example .env        # вписати свої DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
-npm install
-npm run migration:run       # створити таблиці
-npm run seed                # 3 автори, 8 книг, 2 видачі
-npm run start:dev           # застосунок на http://localhost:3000
-```
-
-Файл `requests.http` містить запити до кожного ендпоінта. Відкрий його у VS Code з розширенням REST Client.
+</details>
 
 ## 3. Шлях одного запиту
 
@@ -186,5 +170,5 @@ Unit-тести перевіряють один сервіс окремо, а з
 
 ## Схема і PDF
 
-- `docs/architecture.excalidraw`: схема проєкту. Відкрити на excalidraw.com через Open або в розширенні Excalidraw у VS Code.
+- `docs/architecture.excalidraw`: схема проєкту. Після `npm run up` вона відкривається на `/scheme` прямо з API; редагувати можна на excalidraw.com.
 - `docs/Backend_without_panic.pdf`: короткий документ на всі три проєкти: для кожної теми що це, чому важливо, коли про це думати, коли можна забити, при якому трафіку і як зрозуміти, що час настав.

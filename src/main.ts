@@ -2,6 +2,8 @@
 // Це єдиний файл, який запускає Node: node dist/main.js.
 // Він завантажує app.module.ts, а далі все робить Nest.
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'node:path';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import { Request, Response } from 'express';
@@ -28,9 +30,15 @@ async function bootstrap(): Promise<void> {
   // GET /reference: сторінка з документацією, де можна одразу робити запити.
   app.use('/reference', apiReference({ url: '/openapi.json' }));
 
+  // GET /scheme: схема проєкту (Excalidraw у режимі перегляду), файли з папки public.
+  (app as NestExpressApplication).useStaticAssets(join(__dirname, '..', 'public'));
+  app.getHttpAdapter().get('/scheme', (_req: Request, res: Response) => {
+    res.sendFile(join(__dirname, '..', 'public', 'scheme.html'));
+  });
+
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
-  console.log(`Застосунок слухає http://localhost:${port}, документація: /reference`);
+  console.log(`Застосунок слухає http://localhost:${port}, документація: /reference, схема: /scheme`);
 }
 
 bootstrap();
