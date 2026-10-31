@@ -13,7 +13,7 @@
     "build": "nest build && npm run build:scheme",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
-    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts -p src/database/migrations/Migration",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "seed": "ts-node src/database/seed.ts",
     "deps:check": "depcruise src --config .dependency-cruiser.cjs",

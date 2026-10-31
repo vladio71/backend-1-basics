@@ -1,5 +1,5 @@
 # Запити для VS Code REST Client. Натисни "Send Request" над будь-яким з них.
-# Перед цим запусти застосунок і seed: npm run seed.
+# Перед цим запусти застосунок: npm run up (він сам наповнює базу). Без Docker: npm run seed.
 
 @host = http://localhost:3000
 

@@ -16,6 +16,7 @@ import { LoansModule } from './loans/loans.module';
 export class AppModule implements NestModule {
   // Middleware з request id працює для всіх маршрутів.
   configure(consumer: MiddlewareConsumer): void {
+    // '{*splat}' це синтаксис Express 5 для "усі шляхи" (в Express 4 було просто '*').
     consumer.apply(requestIdMiddleware).forRoutes('{*splat}');
   }
 }

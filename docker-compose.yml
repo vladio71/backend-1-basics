@@ -1,4 +1,5 @@
-# Два контейнери: база і застосунок. Запуск: docker compose up --build
+# База, одноразовий крок seed і застосунок. Запуск: docker compose up --build
+# Крок seed застосовує міграції і наповнює порожню базу прикладами, тож після npm run up дані вже є.
 services:
   postgres:
     image: postgres:16-alpine
@@ -15,6 +16,23 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Одноразовий крок: міграції + стартові дані (npm run seed). Якщо автори вже є, нічого не робить,
+  # тож повторний запуск безпечний. Збирається зі стадії build, бо там є ts-node і вихідний код.
+  seed:
+    build:
+      context: .
+      target: build
+    command: ["npm", "run", "seed"]
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: library
+      DB_PASSWORD: library
+      DB_NAME: library
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   app:
     build: .
@@ -33,10 +51,13 @@ services:
       DB_USER: library
       DB_PASSWORD: library
       DB_NAME: library
-    # Застосунок стартує тільки після того, як база відповіла на pg_isready.
+    # Застосунок стартує тільки після того, як база відповіла на pg_isready
+    # і seed успішно завершився.
     depends_on:
       postgres:
         condition: service_healthy
+      seed:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:

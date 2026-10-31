@@ -21,8 +21,7 @@ COPY --from=build /app/public ./public
 
 EXPOSE 3000
 
-# Docker сам перевіряє, чи застосунок живий. Міграції запускаються при старті (migrationsRun: true).
-HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=5 \
-  CMD wget -qO- http://localhost:3000/health || exit 1
+# HEALTHCHECK тут свідомо немає: перевірку "живий чи ні" описано один раз, у docker-compose.yml (сервіс app).
+# Міграції запускаються при старті застосунку (migrationsRun: true).
 
 CMD ["node", "dist/main.js"]

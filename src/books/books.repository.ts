@@ -4,6 +4,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, ILike, Repository } from 'typeorm';
+import { escapeLike } from '../common/escape-like';
 import { Loan } from '../loans/loan.entity';
 import { Book } from './book.entity';
 
@@ -33,7 +34,8 @@ export class BooksRepository {
     }
     if (filter.titleContains !== undefined && filter.titleContains !== '') {
       // ILike: пошук підрядка без урахування регістру. % означає "будь-що".
-      where.title = ILike(`%${filter.titleContains}%`);
+      // Символи % і _ у самому запиті клієнта екрануємо, інакше ?q=% знайшов би всі книги.
+      where.title = ILike(`%${escapeLike(filter.titleContains)}%`);
     }
     return this.books.findAndCount({ where, order: { id: 'ASC' }, skip, take });
   }
@@ -63,6 +65,10 @@ export class BooksRepository {
   }
 
   // Скільки видач посилаються на цю книгу. Потрібно перед видаленням.
+  // Тут репозиторій книг читає чужу таблицю loans через manager. Це свідомий компроміс:
+  // якби BooksRepository вимагав LoansRepository, BooksModule довелось би імпортувати LoansModule,
+  // а LoansModule вже імпортує BooksModule. Вийшов би цикл у DI (залежність по колу), який Nest не любить.
+  // Для одного COUNT простіше і чесніше дозволити собі цей виняток, ніж будувати forwardRef.
   async countLoans(bookId: number): Promise<number> {
     return this.books.manager.count(Loan, { where: { bookId } });
   }

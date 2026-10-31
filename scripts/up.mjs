@@ -12,17 +12,11 @@ import { existsSync, copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 
 const PROJECT = 'backend-1-basics';
-// health також перевіряється у SMOKE нижче.
-const HEALTH_URL = 'http://localhost:3000/health';
-void HEALTH_URL;
 const SMOKE = [["health", "http://localhost:3000/health", {"status": 200, "includes": "ok"}], ["список книг", "http://localhost:3000/books", {"status": 200, "includes": "items"}], ["контракт API", "http://localhost:3000/reference", {"status": 200}]]; // [назва, url, що очікуємо]
 const OPEN = [["схема проєкту", "http://localhost:3000/scheme"], ["контракт API, запити можна виконувати зі сторінки", "http://localhost:3000/reference"], ["health", "http://localhost:3000/health"]];   // [назва, url]
-const PROFILES = {}; // прапорець -> профіль compose
 
 const args = new Set(process.argv.slice(2));
 const wipe = args.has('--wipe');
-const profiles = Object.entries(PROFILES).filter(([flag]) => args.has(flag)).map(([, p]) => p);
-const profileArgs = profiles.flatMap((p) => ['--profile', p]);
 
 const log = (s) => console.log(s);
 const fail = (s) => { console.error('\n' + s); process.exit(1); };
@@ -40,13 +34,10 @@ function dockerOk() {
 
 // 1. залежності і .env
 function ensureDeps() {
-  const dirs = ['.', ...(existsSync('learn/package.json') ? ['learn'] : [])];
-  for (const dir of dirs) {
-    if (existsSync(`${dir}/node_modules`)) continue;
-    log(`${dir === '.' ? 'Бекенд' : dir + '/'}: ставлю npm-залежності (один раз)`);
-    const r = run('npm', ['install', '--prefix', dir, '--no-audit', '--no-fund'], { inherit: true });
-    if (r.status !== 0) fail('npm install впав. Текст помилки вище.');
-  }
+  if (existsSync('node_modules')) return;
+  log('Ставлю npm-залежності (один раз)');
+  const r = run('npm', ['install', '--no-audit', '--no-fund'], { inherit: true });
+  if (r.status !== 0) fail('npm install впав. Текст помилки вище.');
 }
 
 function ensureEnv() {
@@ -126,7 +117,9 @@ async function resolvePorts() {
   const taken = new Set();
   const chosen = {};
   const moved = [];
+  const defaults = new Map();
   for (const { variable, defaultPort } of portSpecs()) {
+    defaults.set(variable, defaultPort);
     let port = Number(envNow[variable]) || defaultPort;
     for (;;) {
       const owner = owners.get(port);
@@ -139,7 +132,9 @@ async function resolvePorts() {
     chosen[variable] = port;
     if (port !== defaultPort) moved.push(`${variable}: ${defaultPort} зайнятий, беру ${port}`);
   }
-  writeEnvVars(chosen);
+  // В .env пишемо тільки порти, що відрізняються від типових (так обіцяє README).
+  const changed = Object.fromEntries(Object.entries(chosen).filter(([variable, port]) => port !== defaults.get(variable)));
+  writeEnvVars(changed);
   if (moved.length) log('Порти:\n  ' + moved.join('\n  '));
   return chosen;
 }
@@ -156,9 +151,9 @@ function withPorts(url, ports) {
 function composeUp() {
   if (wipe) {
     log('Видаляю томи (--wipe)');
-    run('docker', ['compose', ...profileArgs, 'down', '-v', '--remove-orphans'], { inherit: true });
+    run('docker', ['compose', 'down', '-v', '--remove-orphans'], { inherit: true });
   }
-  const r = run('docker', ['compose', ...profileArgs, 'up', '--build', '-d', '--remove-orphans'], { inherit: true });
+  const r = run('docker', ['compose', 'up', '--build', '-d', '--remove-orphans'], { inherit: true });
   if (r.status !== 0) fail('docker compose up впав. Текст помилки вище.');
 }
 
@@ -167,14 +162,14 @@ async function waitHealthy(timeoutMs = 240_000) {
   const start = Date.now();
   let last = '';
   while (Date.now() - start < timeoutMs) {
-    const r = run('docker', ['compose', ...profileArgs, 'ps', '--all', '--format', 'json']);
+    const r = run('docker', ['compose', 'ps', '--all', '--format', 'json']);
     const rows = (r.stdout || '').trim().split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
     const items = rows.flatMap((x) => (Array.isArray(x) ? x : [x]));
     const bad = items.filter((c) => c.State === 'exited' && c.ExitCode !== 0);
     if (bad.length) {
       for (const c of bad) {
         console.error(`\nСервіс ${c.Service} упав (код ${c.ExitCode}). Останні рядки логів:`);
-        run('docker', ['compose', ...profileArgs, 'logs', '--tail', '40', c.Service], { inherit: true });
+        run('docker', ['compose', 'logs', '--tail', '40', c.Service], { inherit: true });
       }
       fail('Запуск не вдався.');
     }
@@ -185,7 +180,7 @@ async function waitHealthy(timeoutMs = 240_000) {
     if (pending.length === 0) return;
     await new Promise((res) => setTimeout(res, 3000));
   }
-  run('docker', ['compose', ...profileArgs, 'ps'], { inherit: true });
+  run('docker', ['compose', 'ps'], { inherit: true });
   fail('За 4 хвилини не всі сервіси стали healthy. Подивись docker compose logs <сервіс>.');
 }
 

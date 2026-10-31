@@ -10,7 +10,7 @@
 | POST | /authors | `{ name, country }` | 201, автор | 400 |
 | PATCH | /authors/:id | `{ name?, country? }` | автор | 400, 404 |
 | DELETE | /authors/:id | id в URL | 204, без тіла | 404, 409 (в автора є книги) |
-| GET | /books | query: `page`, `pageSize`, `authorId`, `q` (частина назви) | сторінка книг | 400 |
+| GET | /books | query: `page`, `pageSize`, `authorId`, `q` (частина назви, 1-100 символів) | сторінка книг | 400 |
 | GET | /books/:id | id в URL | книга разом з `author` | 404 |
 | POST | /books | `{ title, year, authorId, copiesTotal }` | 201, книга | 400, 404 (автора немає) |
 | PATCH | /books/:id | `{ title?, year?, authorId? }` | книга | 400, 404 |

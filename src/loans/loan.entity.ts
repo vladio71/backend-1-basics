@@ -1,9 +1,12 @@
 // Сутність Loan: опис таблиці "loans" (видача книги читачу).
 // Поки returnedAt = null, книга на руках. Коли читач повернув, там дата.
 // Використовує репозиторій (loans.repository.ts) і міграції.
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Book } from '../books/book.entity';
 
+// Індекси створює міграція AddIndexes; тут вони описані, щоб TypeORM знав про них (migration:generate).
+@Index('IDX_loans_bookId', ['bookId'])
+@Index('IDX_loans_returnedAt', ['returnedAt'])
 @Entity({ name: 'loans' })
 export class Loan {
   @PrimaryGeneratedColumn()
@@ -13,8 +16,9 @@ export class Loan {
   @Column({ type: 'int' })
   bookId: number;
 
-  // Звʼязок з книгою. У цьому проєкті його не завантажують (JOIN не робимо),
-  // але він каже базі: bookId має вказувати на існуючу книгу.
+  // Звʼязок з книгою. У цьому проєкті його не завантажують (JOIN не робимо).
+  // Сам зовнішній ключ (FOREIGN KEY) створює міграція Init, її і перевіряє база.
+  // Декоратор лише розповідає TypeORM про звʼязок; synchronize вимкнено, тож таблиці він не змінює.
   @ManyToOne(() => Book)
   @JoinColumn({ name: 'bookId' })
   book: Book;

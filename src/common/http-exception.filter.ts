@@ -1,8 +1,9 @@
 // Глобальний фільтр помилок: ловить будь-який виняток і перетворює
 // його на відповідь у форматі ErrorResponse. Один на весь застосунок.
-// Підключається в main.ts. Викликає його Nest, коли контролер або сервіс кинув помилку.
+// Підключається в app.setup.ts (через setupApp). Викликає його Nest, коли контролер або сервіс кинув помилку.
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { QueryFailedError } from 'typeorm';
 import { ErrorResponse } from './error-response';
 import { getRequestId } from './request-id.middleware';
 
@@ -49,7 +50,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return { statusCode: status, error, message, requestId };
     }
 
-    // Усе інше (помилка бази, баг у коді) стає 500.
+    // Помилка бази "порушено зовнішній ключ" (код 23503 у PostgreSQL). Типово це гонка:
+    // сервіс перевірив "книг немає" і дозволив видалити автора, а між перевіркою і DELETE
+    // хтось додав книгу. Перевірка в сервісі лишається (вона дає зрозуміле повідомлення
+    // у звичайному випадку), а це страховка: конфлікт стану, тобто 409, а не 500.
+    if (exception instanceof QueryFailedError && isForeignKeyViolation(exception)) {
+      return {
+        statusCode: HttpStatus.CONFLICT,
+        error: 'Conflict',
+        message: 'Операцію не виконано: запис повʼязаний з іншими записами (або повʼязаний запис щойно зник). Оновіть дані й спробуйте ще раз',
+        requestId,
+      };
+    }
+
+    // Усе інше (інша помилка бази, баг у коді) стає 500.
     return {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       error: 'Internal Server Error',
@@ -57,6 +71,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
       requestId,
     };
   }
+}
+
+// QueryFailedError несе оригінальну помилку драйвера pg; її поле code містить код SQLSTATE.
+function isForeignKeyViolation(error: QueryFailedError): boolean {
+  const code = (error.driverError as { code?: string } | undefined)?.code;
+  return code === '23503';
 }
 
 // 404 -> "Not Found", 409 -> "Conflict". Беремо назву з переліку HttpStatus.

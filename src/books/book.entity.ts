@@ -1,9 +1,11 @@
 // Сутність Book: опис таблиці "books" у базі даних.
 // Книга належить автору (authorId). Поле author заповнюється тільки при JOIN.
 // Використовує репозиторій (books.repository.ts) і міграції.
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Author } from '../authors/author.entity';
 
+// Індекс створює міграція AddIndexes; тут він описаний, щоб TypeORM знав про нього (migration:generate).
+@Index('IDX_books_authorId', ['authorId'])
 @Entity({ name: 'books' })
 export class Book {
   @PrimaryGeneratedColumn()

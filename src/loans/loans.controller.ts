@@ -34,6 +34,7 @@ export class LoansController {
 
   // Вхід: id видачі в URL, без тіла. Вихід: 200 і видача з returnedAt, або 409, якщо вже повернули.
   @Post(':id/return')
+  // POST за замовчуванням дає 201 ("створено"), але повернення нічого не створює, а змінює наявну видачу, тому 200.
   @HttpCode(200)
   @ApiOkResponse({ type: LoanResponse })
   @ApiResponse({ status: 409, type: ErrorResponse, description: 'Книгу вже повернули' })

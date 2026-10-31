@@ -45,12 +45,14 @@ export class LoansService {
     if (loan === null) {
       throw new NotFoundException(`Видачу з id=${id} не знайдено`);
     }
-    if (loan.returnedAt !== null) {
+
+    // Перевірку "вже повернули" робить сам репозиторій в UPDATE (див. giveBack там):
+    // перевірка тут, окремо від зміни, була б гонкою. null означає, що хтось повернув раніше.
+    const returned = await this.loansRepository.giveBack(id);
+    if (returned === null) {
       // 409: видача існує, але книгу вже повернули раніше.
       throw new ConflictException('Книгу вже повернули');
     }
-
-    const returned = await this.loansRepository.giveBack(loan);
     return toLoanResponse(returned);
   }
 }

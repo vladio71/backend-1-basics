@@ -1,12 +1,18 @@
 // E2E-тести: піднімаємо весь застосунок і робимо справжні HTTP-запити
 // до справжньої PostgreSQL. Перевіряємо весь шлях: контролер, сервіс, репозиторій, база.
-// Запуск: npm run test:e2e (потрібна база, налаштування беруться з .env або змінних DB_*).
+// Запуск: npm run test:e2e (потрібен запущений PostgreSQL, налаштування беруться з .env або змінних DB_*).
+// Тести ЧИСТЯТЬ таблиці (TRUNCATE), тому працюють не з базою з .env, а з окремою тестовою:
+// DB_NAME_TEST, типово library_test. Її створює test/e2e-global-setup.ts, якщо немає.
+// Назва тестової бази має закінчуватись на _test, інакше тести не стартують.
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
+import { AuthorsRepository } from '../src/authors/authors.repository';
+import { BooksRepository } from '../src/books/books.repository';
+import { assertTestDatabase } from './e2e-db';
 
 describe('Бібліотека (e2e)', () => {
   let app: INestApplication;
@@ -18,8 +24,10 @@ describe('Бібліотека (e2e)', () => {
     setupApp(app);
     await app.init();
 
-    // Міграції вже виконались при старті (migrationsRun: true). Чистимо таблиці.
+    // Міграції вже виконались при старті (migrationsRun: true). Чистимо таблиці,
+    // але тільки після перевірки, що підключені до тестової бази, а не до робочої.
     dataSource = app.get(DataSource);
+    assertTestDatabase(dataSource.options.database);
     await dataSource.query('TRUNCATE TABLE "loans", "books", "authors" RESTART IDENTITY CASCADE');
   });
 
@@ -159,5 +167,81 @@ describe('Бібліотека (e2e)', () => {
 
     expect(res.body.name).toBe('Ліна Костенко');
     expect(res.body.country).toBe('Польща');
+  });
+
+  it('POST /loans/:id/return: 5 паралельних повернень однієї видачі дають рівно одне 200', async () => {
+    const author = await request(app.getHttpServer()).post('/authors').send({ name: 'Гонка Повернень', country: 'Україна' }).expect(201);
+    const book = await request(app.getHttpServer())
+      .post('/books')
+      .send({ title: 'Книга для гонки', year: 2000, authorId: author.body.id, copiesTotal: 2 })
+      .expect(201);
+    const loan = await request(app.getHttpServer())
+      .post('/loans')
+      .send({ bookId: book.body.id, readerName: 'Гонщик' })
+      .expect(201);
+
+    // Усі п'ять запитів стартують разом: кожен бачить "видача ще активна".
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () => request(app.getHttpServer()).post(`/loans/${loan.body.id}/return`)),
+    );
+
+    const statuses = responses.map((res) => res.status).sort();
+    expect(statuses).toEqual([200, 409, 409, 409, 409]);
+
+    // Якби кожне "успішне" повернення додавало примірник, їх стало б більше, ніж є книг.
+    const after = await request(app.getHttpServer()).get(`/books/${book.body.id}`).expect(200);
+    expect(after.body.copiesAvailable).toBe(after.body.copiesTotal);
+  });
+
+  it('DELETE /authors/:id: якщо книга зʼявилась після перевірки, FK дає 409, а не 500', async () => {
+    // Імітуємо гонку: перевірка "книг немає" пройшла, а книга в автора вже є.
+    const spy = jest.spyOn(app.get(AuthorsRepository), 'countBooks').mockResolvedValue(0);
+    try {
+      const res = await request(app.getHttpServer()).delete(`/authors/${authorId}`).expect(409);
+      expect(res.body).toMatchObject({ statusCode: 409, error: 'Conflict' });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('DELETE /books/:id: якщо видача зʼявилась після перевірки, FK дає 409, а не 500', async () => {
+    const spy = jest.spyOn(app.get(BooksRepository), 'countLoans').mockResolvedValue(0);
+    try {
+      const res = await request(app.getHttpServer()).delete(`/books/${bookId}`).expect(409);
+      expect(res.body).toMatchObject({ statusCode: 409, error: 'Conflict' });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('GET /books?q= сприймає % і _ як звичайні символи, а не як шаблон', async () => {
+    const author = await request(app.getHttpServer()).post('/authors').send({ name: 'Шаблон', country: 'Україна' }).expect(201);
+    const make = (title: string) =>
+      request(app.getHttpServer()).post('/books').send({ title, year: 2001, authorId: author.body.id, copiesTotal: 1 }).expect(201);
+    await make('Знижка 100% гарантії');
+    await make('snake_case');
+
+    const percent = await request(app.getHttpServer()).get('/books').query({ q: '%' }).expect(200);
+    expect(percent.body.items.map((book: { title: string }) => book.title)).toEqual(['Знижка 100% гарантії']);
+
+    const underscore = await request(app.getHttpServer()).get('/books').query({ q: '_' }).expect(200);
+    expect(underscore.body.items.map((book: { title: string }) => book.title)).toEqual(['snake_case']);
+
+    const backslash = await request(app.getHttpServer()).get('/books').query({ q: '\\' }).expect(200);
+    expect(backslash.body.total).toBe(0);
+  });
+
+  it('GET /books?q= відхиляє порожній і задовгий рядок', async () => {
+    await request(app.getHttpServer()).get('/books').query({ q: '' }).expect(400);
+    await request(app.getHttpServer()).get('/books').query({ q: 'а'.repeat(101) }).expect(400);
+  });
+
+  it('x-request-id: нормальний id повертається як є, підозрілий замінюється', async () => {
+    const good = await request(app.getHttpServer()).get('/health').set('x-request-id', 'abc-123_XYZ').expect(200);
+    expect(good.headers['x-request-id']).toBe('abc-123_XYZ');
+
+    const bad = await request(app.getHttpServer()).get('/health').set('x-request-id', 'a b<script>').expect(200);
+    expect(bad.headers['x-request-id']).not.toBe('a b<script>');
+    expect(bad.headers['x-request-id']).toMatch(/^[\w-]{1,64}$/);
   });
 });

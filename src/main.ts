@@ -9,6 +9,7 @@ import { apiReference } from '@scalar/nestjs-api-reference';
 import { Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { setupApp } from './app.setup';
+import { env } from './common/env';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
@@ -36,7 +37,7 @@ async function bootstrap(): Promise<void> {
     res.sendFile(join(__dirname, '..', 'public', 'scheme.html'));
   });
 
-  const port = Number(process.env.PORT ?? 3000);
+  const port = Number(env('PORT', '3000'));
   await app.listen(port);
   console.log(`Застосунок слухає http://localhost:${port}, документація: /reference, схема: /scheme`);
 }

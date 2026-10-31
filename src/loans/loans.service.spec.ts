@@ -48,7 +48,12 @@ class FakeLoansRepository {
     return loan;
   }
 
-  async giveBack(loan: Loan): Promise<Loan> {
+  // Як і справжній: перевірка і зміна разом, null, якщо видачі немає або її вже повернули.
+  async giveBack(id: number): Promise<Loan | null> {
+    const loan = await this.findById(id);
+    if (loan === null || loan.returnedAt !== null) {
+      return null;
+    }
     loan.returnedAt = new Date();
     const book = await this.booksRepository.findById(loan.bookId);
     if (book !== null) {
@@ -139,6 +144,16 @@ describe('LoansService', () => {
       await expect(service.giveBack(loan.id)).rejects.toBeInstanceOf(ConflictException);
       // Примірник не має повернутись двічі.
       expect(books.books[0].copiesAvailable).toBe(1);
+    });
+
+    it('кидає 409, якщо видачу встигли повернути між читанням і зміною', async () => {
+      // Сервіс бачить активну видачу, але репозиторій (UPDATE ... WHERE "returnedAt" IS NULL)
+      // каже null: паралельний запит виграв гонку.
+      books.books.push(makeBook(1, 1));
+      const loan = await service.borrow({ bookId: 1, readerName: 'Олена' });
+      jest.spyOn(loans, 'giveBack').mockResolvedValueOnce(null);
+
+      await expect(service.giveBack(loan.id)).rejects.toBeInstanceOf(ConflictException);
     });
   });
 });

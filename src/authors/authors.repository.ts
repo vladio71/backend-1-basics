@@ -51,6 +51,10 @@ export class AuthorsRepository {
   }
 
   // Скільки книг посилаються на цього автора. Потрібно перед видаленням.
+  // Тут репозиторій авторів читає чужу таблицю books через manager. Це свідомий компроміс:
+  // BooksModule уже імпортує AuthorsModule (книга перевіряє автора), тож якби AuthorsModule
+  // імпортував BooksModule заради BooksRepository, вийшов би цикл у DI (залежність по колу).
+  // Для одного COUNT простіше дозволити собі цей виняток, ніж будувати forwardRef.
   async countBooks(authorId: number): Promise<number> {
     return this.authors.manager.count(Book, { where: { authorId } });
   }

@@ -37,8 +37,11 @@ export class LoansRepository {
   // Повертає null, якщо вільних примірників не лишилось.
   async borrow(bookId: number, readerName: string): Promise<Loan | null> {
     return this.dataSource.transaction(async (manager) => {
-      // Умова copiesAvailable > 0 прямо в UPDATE: якщо два читачі одночасно
-      // беруть останній примірник, база віддасть його тільки одному.
+      // Про лапки: PostgreSQL перетворює назви без лапок на малі літери, тож copiesAvailable
+      // без лапок став би copiesavailable і колонку не знайшов би. Колонки в camelCase завжди в "лапках".
+      //
+      // Той самий прийом від гонки, що й у giveBack нижче: умова copiesAvailable > 0 стоїть
+      // прямо в UPDATE. Якщо два читачі одночасно беруть останній примірник, база віддасть його одному.
       const result = await manager
         .createQueryBuilder()
         .update(Book)
@@ -56,10 +59,35 @@ export class LoansRepository {
   }
 
   // Повернути книгу: проставити дату повернення і віддати примірник назад.
-  async giveBack(loan: Loan): Promise<Loan> {
+  // Повертає null, якщо видачі немає або її вже повернули.
+  //
+  // Урок про гонки (race condition). Наївно було б так: прочитати видачу, перевірити
+  // "returnedAt порожній?", а потім записати дату і додати примірник. Між "перевірити" і "оновити"
+  // є щілина: два запити одночасно читають returnedAt = null, обидва проходять перевірку,
+  // і обидва додають примірник. Книг стає більше, ніж було. Перевірка в JavaScript тут
+  // не рятує, бо запити виконуються паралельно і кожен бачить стару картину.
+  //
+  // Виправлення: зробити перевірку і зміну ОДНОЮ командою SQL:
+  //   UPDATE loans SET "returnedAt" = now() WHERE id = $1 AND "returnedAt" IS NULL
+  // База обробляє такі UPDATE одного рядка по черзі: другий чекає, поки перший завершиться,
+  // потім перечитує рядок, бачить, що returnedAt уже не NULL, і змінює 0 рядків.
+  // Кількість змінених рядків (affected) і є відповіддю "я перший?". 0 означає "хтось встиг раніше".
+  // Тільки переможець додає примірник; обидві зміни в одній транзакції, тож або обидві, або жодна.
+  async giveBack(id: number): Promise<Loan | null> {
     return this.dataSource.transaction(async (manager) => {
-      loan.returnedAt = new Date();
-      const saved = await manager.save(loan);
+      const marked = await manager
+        .createQueryBuilder()
+        .update(Loan)
+        .set({ returnedAt: () => 'now()' })
+        .where('id = :id AND "returnedAt" IS NULL', { id })
+        .execute();
+
+      if (marked.affected === 0) {
+        return null;
+      }
+
+      // У межах цієї транзакції вже бачимо свою зміну.
+      const loan = await manager.findOneByOrFail(Loan, { id });
 
       await manager
         .createQueryBuilder()
@@ -68,7 +96,7 @@ export class LoansRepository {
         .where('id = :bookId', { bookId: loan.bookId })
         .execute();
 
-      return saved;
+      return loan;
     });
   }
 }
